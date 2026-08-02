@@ -13,6 +13,7 @@ import com.jojothemojo.taskmanager.domain.model.AuthState
 import com.jojothemojo.taskmanager.presentation.ui.LoginScreen
 import com.jojothemojo.taskmanager.presentation.ui.TaskListScreen
 import com.jojothemojo.taskmanager.presentation.viewmodel.AuthViewModel
+import com.jojothemojo.taskmanager.presentation.viewmodel.TaskListViewModel
 
 object TaskManagerDestinations {
     const val LOGIN = "login"
@@ -49,7 +50,15 @@ fun TaskManagerNavHost(
             )
         }
         composable(TaskManagerDestinations.TASK_LIST) {
-            TaskListScreen(onSignOutClick = authViewModel::signOut)
+            val taskListViewModel: TaskListViewModel = hiltViewModel()
+            val tasks by taskListViewModel.tasks.collectAsStateWithLifecycle()
+            TaskListScreen(
+                tasks = tasks,
+                onAddTask = taskListViewModel::addTask,
+                onToggleTask = taskListViewModel::toggleCompleted,
+                onDeleteTask = taskListViewModel::deleteTask,
+                onSignOutClick = authViewModel::signOut,
+            )
         }
     }
 }
