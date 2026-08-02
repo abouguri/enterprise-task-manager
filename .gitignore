@@ -1,0 +1,34 @@
+*.iml
+.gradle/
+
+# Internal agent/architecture notes — not published to the repo
+AGENT.md
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+local.properties
+.idea/
+.DS_Store
+/build/
+*.hprof
+.navigation/
+app/release/
+output-metadata.json
+
+# Signing / secrets — never commit
+*.jks
+*.keystore
+keystore.properties
+google-services.json
+secrets.properties
+*.env
+.env*
+
+# Android Studio generated files
+.idea/caches
+.idea/libraries
+.idea/modules.xml
+.idea/workspace.xml
+.idea/navEditor.xml
+.idea/assetWizardSettings.xml
