@@ -1,12 +1,18 @@
 package com.jojothemojo.taskmanager.presentation.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.jojothemojo.taskmanager.domain.model.AuthState
 import com.jojothemojo.taskmanager.presentation.ui.LoginScreen
 import com.jojothemojo.taskmanager.presentation.ui.TaskListScreen
+import com.jojothemojo.taskmanager.presentation.viewmodel.AuthViewModel
 
 object TaskManagerDestinations {
     const val LOGIN = "login"
@@ -18,18 +24,32 @@ fun TaskManagerNavHost(
     navController: NavHostController = rememberNavController(),
     startDestination: String = TaskManagerDestinations.LOGIN,
 ) {
+    val authViewModel: AuthViewModel = hiltViewModel()
+    val authState by authViewModel.authState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(authState) {
+        when (authState) {
+            is AuthState.Authenticated -> navController.navigate(TaskManagerDestinations.TASK_LIST) {
+                popUpTo(navController.graph.id) { inclusive = true }
+                launchSingleTop = true
+            }
+            is AuthState.Unauthenticated -> navController.navigate(TaskManagerDestinations.LOGIN) {
+                popUpTo(navController.graph.id) { inclusive = true }
+                launchSingleTop = true
+            }
+            else -> Unit // Loading / Error: stay put, LoginScreen renders the state itself.
+        }
+    }
+
     NavHost(navController = navController, startDestination = startDestination) {
         composable(TaskManagerDestinations.LOGIN) {
             LoginScreen(
-                onLoginSuccess = {
-                    navController.navigate(TaskManagerDestinations.TASK_LIST) {
-                        popUpTo(TaskManagerDestinations.LOGIN) { inclusive = true }
-                    }
-                }
+                authState = authState,
+                onSignInClick = authViewModel::signIn,
             )
         }
         composable(TaskManagerDestinations.TASK_LIST) {
-            TaskListScreen()
+            TaskListScreen(onSignOutClick = authViewModel::signOut)
         }
     }
 }

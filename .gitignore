@@ -25,6 +25,10 @@ secrets.properties
 *.env
 .env*
 
+# Real MSAL config (client_id / tenant_id) — copy msal_config.json.example to
+# msal_config.json and fill in real values; only the .example is tracked.
+app/src/main/res/raw/msal_config.json
+
 # Android Studio generated files
 .idea/caches
 .idea/libraries

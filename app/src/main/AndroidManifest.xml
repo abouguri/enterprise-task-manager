@@ -19,6 +19,29 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Required by MSAL to capture the browser redirect after sign-in.
+             host/path must match msal_config.json's redirect_uri exactly:
+             msauth://<package>/<base64 signature hash>. The hash below is this
+             machine's debug keystore signature — it will NOT match on another
+             machine or in CI. Regenerate with:
+               keytool -exportcert -alias androiddebugkey -keystore ~/.android/debug.keystore \
+                 -storepass android | openssl sha1 -binary | openssl base64
+             then URL-encode it (+ -> %2B, = -> %3D) and update this file and
+             msal_config.json together; they must always agree. -->
+        <activity
+            android:name="com.microsoft.identity.client.BrowserTabActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="msauth"
+                    android:host="com.jojothemojo.taskmanager"
+                    android:path="/QjYXRIRUw%2B1XCa3wk0me3YY9rYw%3D" />
+            </intent-filter>
+        </activity>
     </application>
 
 </manifest>

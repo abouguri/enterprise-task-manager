@@ -1,0 +1,16 @@
+{
+  "client_id": "PLACEHOLDER_CLIENT_ID",
+  "authorization_user_agent": "DEFAULT",
+  "redirect_uri": "msauth://com.jojothemojo.taskmanager/PLACEHOLDER_SIGNATURE_HASH",
+  "account_mode": "SINGLE",
+  "authorities": [
+    {
+      "type": "AAD",
+      "audience": {
+        "type": "AzureADMyOrg",
+        "tenant_id": "PLACEHOLDER_TENANT_ID"
+      },
+      "default": true
+    }
+  ]
+}
