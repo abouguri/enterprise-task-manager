@@ -4,13 +4,17 @@ import android.app.Activity
 import com.jojothemojo.taskmanager.domain.model.AuthState
 import com.jojothemojo.taskmanager.domain.model.User
 import com.jojothemojo.taskmanager.domain.repository.AuthRepository
+import com.microsoft.identity.client.AadAuthorityAudience
+import com.microsoft.identity.client.AcquireTokenSilentParameters
 import com.microsoft.identity.client.AuthenticationCallback
+import com.microsoft.identity.client.AzureCloudInstance
 import com.microsoft.identity.client.IAccount
 import com.microsoft.identity.client.IAuthenticationResult
 import com.microsoft.identity.client.ISingleAccountPublicClientApplication
 import com.microsoft.identity.client.ISingleAccountPublicClientApplication.CurrentAccountCallback
 import com.microsoft.identity.client.ISingleAccountPublicClientApplication.SignOutCallback
 import com.microsoft.identity.client.SignInParameters
+import com.microsoft.identity.client.SilentAuthenticationCallback
 import com.microsoft.identity.client.exception.MsalException
 import dagger.Lazy
 import kotlinx.coroutines.Dispatchers
@@ -29,6 +33,13 @@ import kotlin.coroutines.resumeWithException
 // "access_as_user" scope's Application ID URI from the same Entra ID App Registration used for
 // sign-in (see TaskManager-Api's AGENT.md §6 for the Azure Portal side of this).
 private val DEFAULT_SCOPES = arrayOf("api://53c04bd3-4155-4a67-9d4c-1ac161d92801/access_as_user")
+
+// Must match msal_config.json's authorities[0].audience.tenant_id. IAccount.getAuthority()
+// is unreliable here - observed returning the literal string "Missing from the token
+// response" even right after a fresh interactive sign-in, which then makes MSAL's own
+// forAccount()-only authority resolution throw MsalArgumentException. Building the authority
+// explicitly from the same config values used for sign-in sidesteps that entirely.
+private const val TENANT_ID = "1293ac4a-60c7-4313-b461-b476cfba9b7c"
 
 @Singleton
 class MsalAuthRepositoryImpl @Inject constructor(
@@ -103,6 +114,32 @@ class MsalAuthRepositoryImpl @Inject constructor(
         } catch (e: MsalException) {
             null
         }
+
+    override suspend fun getAccessToken(): String? {
+        return try {
+            val pca = pca()
+            val account = fetchCurrentAccount() ?: return null
+            suspendCancellableCoroutine<IAuthenticationResult?> { continuation ->
+                val params = AcquireTokenSilentParameters.Builder()
+                    .forAccount(account)
+                    .fromAuthority(AzureCloudInstance.AzurePublic, AadAuthorityAudience.AzureAdMyOrg, TENANT_ID)
+                    .withScopes(DEFAULT_SCOPES.toList())
+                    .withCallback(object : SilentAuthenticationCallback {
+                        override fun onSuccess(authenticationResult: IAuthenticationResult) {
+                            continuation.resume(authenticationResult)
+                        }
+
+                        override fun onError(exception: MsalException) {
+                            continuation.resumeWithException(exception)
+                        }
+                    })
+                    .build()
+                pca.acquireTokenSilentAsync(params)
+            }?.accessToken
+        } catch (e: MsalException) {
+            null
+        }
+    }
 
     private suspend fun refreshCurrentAccount() {
         authState.value = AuthState.Loading

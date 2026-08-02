@@ -3,21 +3,46 @@ package com.jojothemojo.taskmanager.data.repository
 import com.jojothemojo.taskmanager.data.local.TaskDao
 import com.jojothemojo.taskmanager.data.local.toDomain
 import com.jojothemojo.taskmanager.data.local.toEntity
+import com.jojothemojo.taskmanager.data.remote.task.TaskApiService
+import com.jojothemojo.taskmanager.data.remote.task.toDomain
 import com.jojothemojo.taskmanager.domain.model.SyncStatus
 import com.jojothemojo.taskmanager.domain.model.Task
 import com.jojothemojo.taskmanager.domain.repository.TaskRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
+import retrofit2.HttpException
+import java.io.IOException
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
 
+// Network-fetch-into-Room on read only, for now - createTask/updateTask/deleteTask stay
+// Room-only with PENDING_* status, same as before. This is a deliberate half-finished
+// state, not an oversight: the backend has no POST/PUT/DELETE endpoints yet (Phase 4).
+// See AGENT.md §5 for the full picture of what this does and doesn't handle yet (no
+// deletion reconciliation, no conflict resolution, silent-fail on fetch errors).
 class TaskRepositoryImpl @Inject constructor(
     private val taskDao: TaskDao,
+    private val taskApiService: TaskApiService,
 ) : TaskRepository {
 
     override fun observeTasks(): Flow<List<Task>> =
-        taskDao.observeActiveTasks().map { entities -> entities.map { it.toDomain() } }
+        taskDao.observeActiveTasks()
+            .onStart { refreshFromNetwork() }
+            .map { entities -> entities.map { it.toDomain() } }
+
+    private suspend fun refreshFromNetwork() {
+        try {
+            taskApiService.getTasks().forEach { dto -> taskDao.insert(dto.toDomain().toEntity()) }
+        } catch (e: IOException) {
+            // Backend unreachable (not running, no network) - Room keeps serving whatever
+            // was last successfully fetched. Not surfaced as an error state yet.
+        } catch (e: HttpException) {
+            // Backend reachable but returned a non-2xx (e.g. 401 if silent token refresh
+            // also failed) - same degrade-to-cached-data behavior as above.
+        }
+    }
 
     override suspend fun getTask(id: String): Task? = taskDao.getById(id)?.toDomain()
 
