@@ -24,8 +24,11 @@ import javax.inject.Singleton
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-// Placeholder until Phase 3+ defines the real API scope; Graph's User.Read is a safe default.
-private val DEFAULT_SCOPES = arrayOf("User.Read")
+// Scope exposed by our own backend API (TaskManager.Api), not Microsoft Graph - nothing in
+// this app calls Graph, so there's no reason to request its User.Read scope. Must match the
+// "access_as_user" scope's Application ID URI from the same Entra ID App Registration used for
+// sign-in (see TaskManager-Api's AGENT.md §6 for the Azure Portal side of this).
+private val DEFAULT_SCOPES = arrayOf("api://53c04bd3-4155-4a67-9d4c-1ac161d92801/access_as_user")
 
 @Singleton
 class MsalAuthRepositoryImpl @Inject constructor(
