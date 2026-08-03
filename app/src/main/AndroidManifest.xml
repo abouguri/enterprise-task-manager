@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <application
         android:name=".TaskManagerApplication"
@@ -9,6 +10,24 @@
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
         android:theme="@style/Theme.TaskManager">
+
+        <!-- Disables WorkManager's default self-initialization (which would otherwise run
+             with a plain Configuration before TaskManagerApplication.onCreate() and win over
+             the HiltWorkerFactory-based one). Required together with implementing
+             Configuration.Provider on TaskManagerApplication - WorkManager.getInstance()
+             then lazily initializes itself from that provider on first access instead.
+             Confirmed via WorkManagerImpl bytecode, not guessed: without this removal AND
+             Configuration.Provider both present, WorkManager throws
+             "WorkManager is not initialized properly" at runtime. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                tools:node="remove" />
+        </provider>
 
         <activity
             android:name=".MainActivity"
