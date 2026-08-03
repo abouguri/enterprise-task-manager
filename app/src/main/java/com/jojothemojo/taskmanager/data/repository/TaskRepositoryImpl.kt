@@ -5,6 +5,7 @@ import com.jojothemojo.taskmanager.data.local.toDomain
 import com.jojothemojo.taskmanager.data.local.toEntity
 import com.jojothemojo.taskmanager.data.remote.task.TaskApiService
 import com.jojothemojo.taskmanager.data.remote.task.toDomain
+import com.jojothemojo.taskmanager.data.sync.SyncScheduler
 import com.jojothemojo.taskmanager.domain.model.SyncStatus
 import com.jojothemojo.taskmanager.domain.model.Task
 import com.jojothemojo.taskmanager.domain.repository.TaskRepository
@@ -17,14 +18,15 @@ import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
 
-// Network-fetch-into-Room on read only, for now - createTask/updateTask/deleteTask stay
-// Room-only with PENDING_* status, same as before. This is a deliberate half-finished
-// state, not an oversight: the backend has no POST/PUT/DELETE endpoints yet (Phase 4).
-// See AGENT.md §5 for the full picture of what this does and doesn't handle yet (no
-// deletion reconciliation, no conflict resolution, silent-fail on fetch errors).
+// Network-fetch-into-Room on read (GET), and createTask/updateTask/deleteTask write to Room
+// immediately (so the UI never blocks on the network) then hand off to SyncScheduler, which
+// enqueues SyncWorker to push the change to the backend asynchronously. See AGENT.md §5 for
+// the full sync design: PENDING_* status transitions, last-write-wins conflict handling, and
+// what's deliberately still out of scope (no soft-delete/tombstones).
 class TaskRepositoryImpl @Inject constructor(
     private val taskDao: TaskDao,
     private val taskApiService: TaskApiService,
+    private val syncScheduler: SyncScheduler,
 ) : TaskRepository {
 
     override fun observeTasks(): Flow<List<Task>> =
@@ -55,6 +57,7 @@ class TaskRepositoryImpl @Inject constructor(
             syncStatus = SyncStatus.PENDING_CREATE,
         )
         taskDao.insert(newTask.toEntity())
+        syncScheduler.scheduleImmediateSync()
     }
 
     override suspend fun updateTask(task: Task) {
@@ -67,6 +70,7 @@ class TaskRepositoryImpl @Inject constructor(
             SyncStatus.PENDING_UPDATE
         }
         taskDao.update(task.copy(updatedAt = Instant.now(), syncStatus = nextStatus).toEntity())
+        syncScheduler.scheduleImmediateSync()
     }
 
     override suspend fun deleteTask(id: String) {
@@ -76,6 +80,7 @@ class TaskRepositoryImpl @Inject constructor(
             taskDao.deleteById(id)
         } else {
             taskDao.update(existing.copy(syncStatus = SyncStatus.PENDING_DELETE, updatedAt = Instant.now()))
+            syncScheduler.scheduleImmediateSync()
         }
     }
 }
