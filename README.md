@@ -109,4 +109,6 @@ real credentials. (notably: the emulator reaches the host backend at `10.0.2.2`,
 ## Related
 
 - [TaskManager-Api](https://github.com/abouguri/enterprise-task-manager-api) — the ASP.NET Core
-  backend this app syncs with, deployed on Azure App Service + Azure Database for PostgreSQL.
+  backend this app syncs with, live at
+  [`taskmanager-api.azurewebsites.net`](https://taskmanager-api.azurewebsites.net/health) on
+  Azure App Service + Azure Database for PostgreSQL.
